@@ -1107,13 +1107,13 @@ function exportLaporan(){
   const orders = JSON.parse(localStorage.getItem('wrn_orders')||'[]');
   const done = orders.filter(o=>o.status==='selesai');
   if(!done.length){showToast('Belum ada data untuk diekspor','error');return;}
-  let csv = 'ID Pesanan,Meja,Item,Total,Waktu
-';
+  let csv = 'ID Pesanan,Meja,Item,Total,Waktu'
+';'
   done.forEach(o=>{
     const items = o.items.map(i=>i.name+' x'+i.qty).join(' | ');
     const d = new Date(o.time);
-    csv += o.id+','+o.table+',"'+items+'",'+o.total+','+d.toLocaleString('id-ID')+'
-';
+    csv += o.id+','+o.table+',"'+items+'",'+o.total+','+d.toLocaleString('id-ID')+
+';'
   });
   const blob = new Blob([csv],{type:'text/csv'});
   const a = document.createElement('a');
