@@ -1107,12 +1107,13 @@ function exportLaporan(){
   const orders = JSON.parse(localStorage.getItem('wrn_orders')||'[]');
   const done = orders.filter(o=>o.status==='selesai');
   if(!done.length){showToast('Belum ada data untuk diekspor','error');return;}
-  let csv = 'ID Pesanan,Meja,Item,Total,Waktu';
-
+  let csv = 'ID Pesanan,Meja,Item,Total,Waktu
+';
   done.forEach(o=>{
     const items = o.items.map(i=>i.name+' x'+i.qty).join(' | ');
     const d = new Date(o.time);
-    csv += o.id+','+o.table+',"'+items+'",'+o.total+','+d.toLocaleString('id-ID')+';'
+    csv += o.id+','+o.table+',"'+items+'",'+o.total+','+d.toLocaleString('id-ID')+'
+';
   });
   const blob = new Blob([csv],{type:'text/csv'});
   const a = document.createElement('a');
@@ -1135,11 +1136,13 @@ renderTable();
 renderCategories();
 </script>
 
-<!-- Firebase -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
+
+
+<!-- Firebase CDN (Compat version) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
   const firebaseConfig = {
     apiKey: "AIzaSyC93hY2dhMJTlLW50Wb5LMc5kOelu0O47c",
     authDomain: "warung-rasa-nusantara.firebaseapp.com",
@@ -1150,19 +1153,20 @@ renderCategories();
     appId: "1:340168646687:web:e0318d940b798ba6c7752a"
   };
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
+  try {
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
 
-  // Sync pesanan dari Firebase ke localStorage untuk dashboard
-  const ordersRef = ref(db, 'orders');
-  onValue(ordersRef, (snapshot) => {
-    const data = snapshot.val();
-    const orders = data ? Object.values(data) : [];
-    localStorage.setItem('wrn_orders', JSON.stringify(orders));
-    console.log('Admin Firebase sync:', orders.length, 'pesanan');
-  });
-
-  console.log('Firebase Admin connected!');
+    // Sync pesanan dari Firebase ke localStorage untuk dashboard
+    db.ref('orders').on('value', (snapshot) => {
+      const data = snapshot.val();
+      const orders = data ? Object.values(data) : [];
+      localStorage.setItem('wrn_orders', JSON.stringify(orders));
+      console.log('✅ Admin Firebase sync:', orders.length, 'pesanan');
+    });
+  } catch(e) {
+    console.log('Firebase Admin error:', e);
+  }
 </script>
 
 </body>

@@ -553,15 +553,17 @@ checkAuth();
 document.addEventListener('click',initAudio,{once:true});
 document.getElementById('audioNote').classList.add('show');
 renderAll();
-// Firebase handles realtime updates — setInterval sebagai fallback localStorage
-setInterval(()=>{ if(!window._db) autoRefresh(); }, 3000);
+// Firebase handles realtime — setInterval hanya fallback
+setInterval(()=>{ if(typeof firebase === "undefined") autoRefresh(); }, 5000);
 </script>
 
-<!-- Firebase -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
+
+
+<!-- Firebase CDN (Compat version - lebih stabil) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
   const firebaseConfig = {
     apiKey: "AIzaSyC93hY2dhMJTlLW50Wb5LMc5kOelu0O47c",
     authDomain: "warung-rasa-nusantara.firebaseapp.com",
@@ -572,20 +574,16 @@ setInterval(()=>{ if(!window._db) autoRefresh(); }, 3000);
     appId: "1:340168646687:web:e0318d940b798ba6c7752a"
   };
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  console.log('✅ Firebase Dapur connected!');
 
-  // Expose globally
-  window._db = db;
-  window._ref = ref;
-  window._update = update;
-  window._remove = remove;
-
-  // Listen realtime dari Firebase
-  const ordersRef = ref(db, 'orders');
-  onValue(ordersRef, (snapshot) => {
+  // Listen realtime dari Firebase - update otomatis saat ada pesanan baru
+  db.ref('orders').on('value', (snapshot) => {
     const data = snapshot.val();
-    const orders = data ? Object.entries(data).map(([key, val]) => ({...val, firebaseId: key})) : [];
+    const orders = data
+      ? Object.entries(data).map(([key, val]) => ({...val, firebaseId: key}))
+      : [];
 
     // Sync ke localStorage
     localStorage.setItem('wrn_orders', JSON.stringify(orders));
@@ -593,34 +591,31 @@ setInterval(()=>{ if(!window._db) autoRefresh(); }, 3000);
     // Cek pesanan baru
     const newOrders = orders.filter(o => o.status === 'baru');
     const prevCount = parseInt(sessionStorage.getItem('wrn_prev_baru') || '0');
-    if(newOrders.length > prevCount) {
+    if(newOrders.length > prevCount && prevCount >= 0) {
       playNotif();
       showToast('🔴 Pesanan baru masuk!', 'new-order');
     }
     sessionStorage.setItem('wrn_prev_baru', newOrders.length);
-
     renderAll();
     console.log('Firebase sync:', orders.length, 'pesanan');
   });
 
+  // Fungsi update status pesanan di Firebase
   window._updateFirebaseStatus = function(firebaseId, newStatus) {
-    if(!firebaseId || !window._db) return;
-    const orderRef = window._ref(window._db, 'orders/' + firebaseId);
-    window._update(orderRef, { status: newStatus });
+    if(!firebaseId) return;
+    db.ref('orders/' + firebaseId).update({ status: newStatus });
   };
 
+  // Fungsi hapus pesanan dari Firebase
   window._removeFirebaseOrder = function(firebaseId) {
-    if(!firebaseId || !window._db) return;
-    const orderRef = window._ref(window._db, 'orders/' + firebaseId);
-    window._remove(orderRef);
+    if(!firebaseId) return;
+    db.ref('orders/' + firebaseId).remove();
   };
 
+  // Fungsi hapus semua pesanan dari Firebase
   window._clearFirebaseOrders = function() {
-    const ordersRef = window._ref(window._db, 'orders');
-    window._remove(ordersRef);
+    db.ref('orders').remove();
   };
-
-  console.log('Firebase Dapur connected!');
 </script>
 
 </body>

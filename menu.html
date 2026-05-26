@@ -747,14 +747,15 @@ function placeOrder() {
 
   // Simpan ke Firebase (realtime - lintas perangkat)
   try {
-    if(window._firebaseDB && window._firebaseRef && window._firebasePush) {
-      const ordersRef = window._firebaseRef(window._firebaseDB, 'orders');
-      const newOrderRef = window._firebasePush(ordersRef);
-      window._firebaseSet(newOrderRef, {...order, firebaseId: newOrderRef.key});
-      console.log('Pesanan terkirim ke Firebase:', newOrderRef.key);
+    if(window._firebaseDB) {
+      const newOrderRef = window._firebaseDB.ref('orders').push();
+      newOrderRef.set({...order, firebaseId: newOrderRef.key});
+      console.log('✅ Pesanan terkirim ke Firebase:', newOrderRef.key);
+    } else {
+      console.log('Firebase belum siap, hanya localStorage');
     }
   } catch(e) {
-    console.log('Firebase tidak tersedia, menggunakan localStorage:', e);
+    console.log('Firebase error:', e);
   }
 
   // Tampilkan konfirmasi
@@ -771,11 +772,13 @@ function placeOrder() {
 renderMenu(menu);
 </script>
 
-<!-- Firebase -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
+
+
+<!-- Firebase CDN (Compat version) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
   const firebaseConfig = {
     apiKey: "AIzaSyC93hY2dhMJTlLW50Wb5LMc5kOelu0O47c",
     authDomain: "warung-rasa-nusantara.firebaseapp.com",
@@ -786,13 +789,13 @@ renderMenu(menu);
     appId: "1:340168646687:web:e0318d940b798ba6c7752a"
   };
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  window._firebaseDB = db;
-  window._firebaseRef = ref;
-  window._firebasePush = push;
-  window._firebaseSet = set;
-  console.log('Firebase connected!');
+  try {
+    firebase.initializeApp(firebaseConfig);
+    window._firebaseDB = firebase.database();
+    console.log('✅ Firebase Menu connected!');
+  } catch(e) {
+    console.log('Firebase error:', e);
+  }
 </script>
 
 </body>
