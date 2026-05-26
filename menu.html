@@ -731,7 +731,7 @@ function placeOrder() {
   });
   const total = orderItems.reduce((s, i) => s + i.subtotal, 0);
 
-  // Simpan pesanan ke localStorage
+  // Simpan ke Firebase jika tersedia, fallback ke localStorage
   const order = {
     id: 'ORD-' + Date.now(),
     table: table,
@@ -740,9 +740,22 @@ function placeOrder() {
     status: 'baru', // baru | proses | siap | selesai
     time: new Date().toISOString(),
   };
+  // Simpan ke localStorage (fallback)
   const existing = JSON.parse(localStorage.getItem('wrn_orders') || '[]');
   existing.push(order);
   localStorage.setItem('wrn_orders', JSON.stringify(existing));
+
+  // Simpan ke Firebase (realtime - lintas perangkat)
+  try {
+    if(window._firebaseDB && window._firebaseRef && window._firebasePush) {
+      const ordersRef = window._firebaseRef(window._firebaseDB, 'orders');
+      const newOrderRef = window._firebasePush(ordersRef);
+      window._firebaseSet(newOrderRef, {...order, firebaseId: newOrderRef.key});
+      console.log('Pesanan terkirim ke Firebase:', newOrderRef.key);
+    }
+  } catch(e) {
+    console.log('Firebase tidak tersedia, menggunakan localStorage:', e);
+  }
 
   // Tampilkan konfirmasi
   const itemList = orderItems.map(i => `${i.emoji} ${i.name} x${i.qty}`).join('\n');
@@ -757,5 +770,30 @@ function placeOrder() {
 
 renderMenu(menu);
 </script>
+
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyC93hY2dhMJTlLW50Wb5LMc5kOelu0O47c",
+    authDomain: "warung-rasa-nusantara.firebaseapp.com",
+    databaseURL: "https://warung-rasa-nusantara-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "warung-rasa-nusantara",
+    storageBucket: "warung-rasa-nusantara.firebasestorage.app",
+    messagingSenderId: "340168646687",
+    appId: "1:340168646687:web:e0318d940b798ba6c7752a"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  window._firebaseDB = db;
+  window._firebaseRef = ref;
+  window._firebasePush = push;
+  window._firebaseSet = set;
+  console.log('Firebase connected!');
+</script>
+
 </body>
 </html>
