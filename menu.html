@@ -13,7 +13,7 @@
     --gold-light: #E8C97A;
     --dark: #0E0C08;
     --dark2: #1A1710;
-    --dark3: #252218;
+    --dark3: #252218; 
     --dark4: #2E2A1E;
     --cream: #F5EED8;
     --cream2: #E8DDB8;
@@ -195,6 +195,13 @@
     justify-content: center;
     font-size: 28px;
     flex-shrink: 0;
+    overflow: hidden;
+  }
+  .menu-emoji img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
   }
   .menu-info { flex: 1; min-width: 0; }
   .menu-name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
@@ -532,7 +539,7 @@
 <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
   <div class="modal" style="position:relative;">
     <button class="modal-close-btn" onclick="closeModalBtn()">✕</button>
-    <div id="modalEmoji" style="font-size:48px;margin-bottom:12px;"></div>
+    <div id="modalEmoji" style="font-size:48px;margin-bottom:12px;width:88px;height:88px;margin-left:auto;margin-right:auto;border-radius:14px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--dark4);border:1px solid rgba(201,168,76,0.15);"></div>
     <div class="modal-name" id="modalName"></div>
     <div class="modal-desc" id="modalDesc"></div>
     <div class="modal-price" id="modalPrice"></div>
@@ -541,7 +548,7 @@
 </div>
 
 <script>
-const menu = [
+let menu = [
   { id:1, cat:'nasi', emoji:'🍛', name:'Nasi Gudeg Komplit', desc:'Nasi dengan gudeg nangka muda, krecek, ayam opor, telur pindang, dan sambal goreng kering.', price:32000, popular:true, spicy:false, isNew:false },
   { id:2, cat:'nasi', emoji:'🍗', name:'Nasi Ayam Bakar Bumbu Rujak', desc:'Ayam kampung dibakar dengan bumbu rujak pedas manis, disajikan dengan lalapan segar.', price:35000, popular:false, spicy:true, isNew:false },
   { id:3, cat:'nasi', emoji:'🥩', name:'Nasi Rendang Sapi', desc:'Rendang sapi empuk dimasak berjam-jam dengan rempah-rempah khas Minang.', price:38000, popular:true, spicy:true, isNew:false },
@@ -605,7 +612,7 @@ function renderMenu(items) {
       if (item.isNew) badges.push(`<span class="badge-new">Baru</span>`);
       if (item.spicy) badges.push(`<span class="badge-spicy">🌶️ Pedas</span>`);
       html += `<div class="menu-card${item.popular?' popular':''}" onclick="openModal(${item.id})">
-        <div class="menu-emoji">${item.emoji}</div>
+        <div class="menu-emoji">${item.photo ? `<img src="${item.photo}" alt="${item.name}">` : item.emoji}</div>
         <div class="menu-info">
           <div class="menu-name-row">
             <span class="menu-name">${item.name}</span>
@@ -624,7 +631,9 @@ function renderMenu(items) {
   container.innerHTML = html;
 }
 
+let currentCat = 'all';
 function filterCat(cat, btn) {
+  currentCat = cat;
   document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   const items = cat === 'all' ? menu : menu.filter(i => i.cat === cat);
@@ -640,7 +649,9 @@ function filterCat(cat, btn) {
 function openModal(id) {
   const item = menu.find(i => i.id === id);
   currentModal = item;
-  document.getElementById('modalEmoji').textContent = item.emoji;
+  document.getElementById('modalEmoji').innerHTML = item.photo
+    ? `<img src="${item.photo}" alt="${item.name}" style="width:100%;height:100%;object-fit:cover;">`
+    : item.emoji;
   document.getElementById('modalName').textContent = item.name;
   document.getElementById('modalDesc').textContent = item.desc;
   document.getElementById('modalPrice').textContent = fmt(item.price);
@@ -793,6 +804,17 @@ renderMenu(menu);
     firebase.initializeApp(firebaseConfig);
     window._firebaseDB = firebase.database();
     console.log('✅ Firebase Menu connected!');
+
+    // Sync data menu dari Firebase (diisi Admin) secara real-time
+    window._firebaseDB.ref('menu').on('value', (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        menu = Array.isArray(data) ? data.filter(Boolean) : Object.values(data);
+        const items = currentCat === 'all' ? menu : menu.filter(i => i.cat === currentCat);
+        renderMenu(items);
+        console.log('✅ Menu Firebase sync:', menu.length, 'item');
+      }
+    });
   } catch(e) {
     console.log('Firebase error:', e);
   }
