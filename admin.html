@@ -683,6 +683,7 @@ const catMeta = {nasi:{label:'Nasi & Lauk',icon:'🍚'},mie:{label:'Mie & Sup',i
 let availFilter = 'all';
 let editId = null;
 let currentEmoji = '🍛';
+let db = null;
 let pendingDeleteId = null;
 let photoData = '';
 
@@ -913,7 +914,7 @@ function gotoPage(id,el){
 
 function updateJsonPreview(){
   const preview=document.getElementById('jsonPreview');
-  const data=menuItems.map(i=>({id:i.id,cat:i.cat,emoji:i.emoji,name:i.name,desc:i.desc,price:i.price,popular:i.popular,spicy:i.spicy,isNew:i.isNew}));
+  const data=menuItems.map(i=>({id:i.id,cat:i.cat,emoji:i.emoji,name:i.name,desc:i.desc,price:i.price,popular:i.popular,spicy:i.spicy,isNew:i.isNew,photo:i.photo||''}));
   preview.textContent=JSON.stringify(data,null,2);
 }
 
@@ -922,32 +923,27 @@ function saveSettings(){showToast('✅ Pengaturan tersimpan','success');}
 
 // ── EXPORT ──
 function exportJSON(){
-  const data=menuItems.map(i=>({id:i.id,cat:i.cat,emoji:i.emoji,name:i.name,desc:i.desc,price:i.price,popular:i.popular,spicy:i.spicy,isNew:i.isNew}));
+  const data=menuItems.map(i=>({id:i.id,cat:i.cat,emoji:i.emoji,name:i.name,desc:i.desc,price:i.price,popular:i.popular,spicy:i.spicy,isNew:i.isNew,photo:i.photo||''}));
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='menu-data.json';a.click();
   showToast('⬇️ File menu-data.json diunduh');
 }
 
-// ── SAVE TO MENU.HTML ──
+// ── SAVE TO MENU.HTML (via Firebase, real-time) ──
 function saveToMenu(){
-  const menuData = menuItems.map(i=>({id:i.id,cat:i.cat,emoji:i.emoji,name:i.name,desc:i.desc,price:i.price,popular:i.popular,spicy:i.spicy,isNew:i.isNew,photo:i.photo||''}));
-  const jsonStr = JSON.stringify(menuData);
-  const note = `
-Admin berhasil menyimpan ${menuItems.length} item menu.
+  const menuData = menuItems.map(i=>({id:i.id,cat:i.cat,emoji:i.emoji,name:i.name,desc:i.desc,price:i.price,priceOri:i.priceOri||0,popular:i.popular,spicy:i.spicy,isNew:i.isNew,available:i.available,photo:i.photo||''}));
 
-Untuk menerapkan perubahan ke menu.html yang digunakan tamu:
-1. Klik "Ekspor Data" di sidebar kiri
-2. Download file menu-data.json
-3. Tempel data JSON tersebut ke dalam file menu.html Anda (ganti const menu = [...])
+  if(!db){
+    showToast('⚠️ Belum terhubung ke server. Cek koneksi internet & coba lagi.','error');
+    return;
+  }
 
-Atau gunakan tombol di bawah untuk menyalin data:`;
-  
-  // Copy to clipboard
-  navigator.clipboard.writeText('const menu = ' + jsonStr + ';').then(()=>{
-    showToast('📋 Data menu disalin ke clipboard!','success');
-  }).catch(()=>{
-    showToast('✅ Data tersimpan — gunakan Ekspor untuk download','success');
+  db.ref('menu').set(menuData).then(()=>{
+    showToast('✅ Menu tersimpan & langsung tampil di menu.html','success');
+  }).catch(err=>{
+    console.log('Save menu error:', err);
+    showToast('⚠️ Gagal menyimpan menu ke server','error');
   });
 }
 
@@ -1153,7 +1149,7 @@ renderCategories();
 
   try {
     firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+    db = firebase.database();
 
     // Sync pesanan dari Firebase ke localStorage untuk dashboard
     db.ref('orders').on('value', (snapshot) => {
@@ -1161,6 +1157,17 @@ renderCategories();
       const orders = data ? Object.values(data) : [];
       localStorage.setItem('wrn_orders', JSON.stringify(orders));
       console.log('✅ Admin Firebase sync:', orders.length, 'pesanan');
+    });
+
+    // Sync menu dari Firebase agar Admin selalu tampilkan data terbaru
+    db.ref('menu').on('value', (snapshot) => {
+      const data = snapshot.val();
+      if(data){
+        menuItems = Array.isArray(data) ? data.filter(Boolean) : Object.values(data);
+        renderTable();
+        renderCategories();
+        console.log('✅ Admin menu Firebase sync:', menuItems.length, 'item');
+      }
     });
   } catch(e) {
     console.log('Firebase Admin error:', e);
