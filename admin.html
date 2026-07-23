@@ -748,7 +748,7 @@ function setAvailFilter(v,btn){
 
 function toggleAvail(id){
   const item = menuItems.find(i=>i.id===id);
-  if(item){item.available=!item.available;renderTable();}
+  if(item){item.available=!item.available;renderTable();syncMenuToFirebase();}
   showToast(item.available?'✅ Menu ditandai tersedia':'⏸️ Menu ditandai habis');
 }
 
@@ -829,6 +829,7 @@ function saveItem(){
   closeDrawerBtn();
   renderTable();
   renderCategories();
+  syncMenuToFirebase();
 }
 
 // ── EMOJI ──
@@ -884,6 +885,7 @@ function confirmDelete(){
   if(pendingDeleteId){
     menuItems=menuItems.filter(i=>i.id!==pendingDeleteId);
     renderTable();renderCategories();
+    syncMenuToFirebase();
     showToast('🗑️ Menu berhasil dihapus');
   }
   closeConfirm();
@@ -930,15 +932,20 @@ function exportJSON(){
   showToast('⬇️ File menu-data.json diunduh');
 }
 
-// ── SAVE TO MENU.HTML (via Firebase, real-time) ──
-function saveToMenu(){
+// ── SYNC KE FIREBASE (otomatis, dipanggil setiap ada perubahan) ──
+function syncMenuToFirebase(){
+  if(!db) return;
   const menuData = menuItems.map(i=>({id:i.id,cat:i.cat,emoji:i.emoji,name:i.name,desc:i.desc,price:i.price,priceOri:i.priceOri||0,popular:i.popular,spicy:i.spicy,isNew:i.isNew,available:i.available,photo:i.photo||''}));
+  db.ref('menu').set(menuData).catch(err=>console.log('Sync menu error:', err));
+}
 
+// ── SAVE TO MENU.HTML (tombol manual, untuk memastikan/memaksa sinkronisasi) ──
+function saveToMenu(){
   if(!db){
     showToast('⚠️ Belum terhubung ke server. Cek koneksi internet & coba lagi.','error');
     return;
   }
-
+  const menuData = menuItems.map(i=>({id:i.id,cat:i.cat,emoji:i.emoji,name:i.name,desc:i.desc,price:i.price,priceOri:i.priceOri||0,popular:i.popular,spicy:i.spicy,isNew:i.isNew,available:i.available,photo:i.photo||''}));
   db.ref('menu').set(menuData).then(()=>{
     showToast('✅ Menu tersimpan & langsung tampil di menu.html','success');
   }).catch(err=>{
