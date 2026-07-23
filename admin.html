@@ -514,6 +514,11 @@ input.finput:focus,textarea.finput:focus,select.finput:focus{border-color:var(--
           <p style="font-size:13px;color:var(--text3);margin-bottom:16px;line-height:1.6;">Simpan perubahan menu langsung ke dalam file menu.html untuk ditampilkan ke tamu.</p>
           <button class="btn-primary gold" id="saveMenuBtnPanel" onclick="saveToMenu()" style="width:100%;justify-content:center;">💾 Simpan ke Menu</button>
         </div>
+        <div class="settings-card">
+          <h3>🗜️ Kompres Foto Lama</h3>
+          <p style="font-size:13px;color:var(--text3);margin-bottom:16px;line-height:1.6;">Perkecil ukuran semua foto yang sudah diupload sebelumnya, agar menu.html lebih cepat dimuat oleh tamu.</p>
+          <button class="btn-primary" id="compressAllBtn" onclick="compressAllPhotos()" style="width:100%;justify-content:center;">🗜️ Kompres Semua Foto</button>
+        </div>
       </div>
       <div class="settings-card" style="margin-top:20px;">
         <h3>📋 Preview Data JSON</h3>
@@ -956,7 +961,34 @@ function exportJSON(){
   showToast('⬇️ File menu-data.json diunduh');
 }
 
-// ── SYNC KE FIREBASE (otomatis, dipanggil setiap ada perubahan) ──
+// Kompres ulang semua foto yang sudah tersimpan (untuk item yang diupload sebelum ada fitur kompresi otomatis)
+async function compressAllPhotos(){
+  const withPhoto = menuItems.filter(i=>i.photo);
+  if(!withPhoto.length){ showToast('Belum ada foto untuk dikompres','error'); return; }
+
+  const btn = document.getElementById('compressAllBtn');
+  btn.disabled = true;
+  const orig = btn.innerHTML;
+
+  let done = 0;
+  for(const item of withPhoto){
+    done++;
+    btn.innerHTML = `⏳ Memproses ${done}/${withPhoto.length}...`;
+    try{
+      const compressed = await new Promise((resolve)=>{
+        compressImage(item.photo, resolve);
+      });
+      item.photo = compressed;
+    }catch(e){ console.log('Gagal kompres foto item', item.id, e); }
+  }
+
+  renderTable();
+  btn.innerHTML = '⏳ Menyimpan ke server...';
+  syncMenuToFirebase();
+  btn.disabled = false;
+  btn.innerHTML = orig;
+  showToast(`✅ ${withPhoto.length} foto berhasil dikompres & disimpan`,'success');
+}
 function syncMenuToFirebase(){
   if(!db) return;
   const menuData = menuItems.map(i=>({id:i.id,cat:i.cat,emoji:i.emoji,name:i.name,desc:i.desc,price:i.price,priceOri:i.priceOri||0,popular:i.popular,spicy:i.spicy,isNew:i.isNew,available:i.available,photo:i.photo||''}));
