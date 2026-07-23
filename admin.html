@@ -299,7 +299,7 @@ input.finput:focus,textarea.finput:focus,select.finput:focus{border-color:var(--
     <a class="topbar-preview" href="dapur.html" target="_blank">🍳 Buka Dapur</a>
     <a class="topbar-preview" href="menu.html" target="_blank">👁 Preview Menu</a>
     <button class="logout-btn" onclick="doLogout()">🚪 Keluar</button>
-    <button class="topbar-save" onclick="saveToMenu()">💾 Simpan ke Menu</button>
+    <button class="topbar-save" id="saveMenuBtnTop" onclick="saveToMenu()">💾 Simpan ke Menu</button>
   </div>
 </header>
 
@@ -512,7 +512,7 @@ input.finput:focus,textarea.finput:focus,select.finput:focus{border-color:var(--
         <div class="settings-card">
           <h3>🔄 Generate Kode Menu.html</h3>
           <p style="font-size:13px;color:var(--text3);margin-bottom:16px;line-height:1.6;">Simpan perubahan menu langsung ke dalam file menu.html untuk ditampilkan ke tamu.</p>
-          <button class="btn-primary gold" onclick="saveToMenu()" style="width:100%;justify-content:center;">💾 Simpan ke Menu</button>
+          <button class="btn-primary gold" id="saveMenuBtnPanel" onclick="saveToMenu()" style="width:100%;justify-content:center;">💾 Simpan ke Menu</button>
         </div>
       </div>
       <div class="settings-card" style="margin-top:20px;">
@@ -864,8 +864,32 @@ function handlePhotoUpload(e){
   if(!file)return;
   if(file.size>5*1024*1024){showToast('⚠️ Ukuran foto maksimal 5MB','error');return;}
   const reader=new FileReader();
-  reader.onload=ev=>{photoData=ev.target.result;showPhotoPreview(ev.target.result);};
+  reader.onload=ev=>{
+    compressImage(ev.target.result, compressed=>{
+      photoData=compressed;
+      showPhotoPreview(compressed);
+    });
+  };
   reader.readAsDataURL(file);
+}
+
+// Kompres & resize foto secara otomatis (maks 640px, JPEG kualitas 72%)
+// supaya ukuran data kecil dan sinkronisasi ke Firebase cepat & stabil
+function compressImage(dataUrl, callback){
+  const img=new Image();
+  img.onload=()=>{
+    const maxDim=640;
+    let w=img.width, h=img.height;
+    if(w>h && w>maxDim){ h=Math.round(h*(maxDim/w)); w=maxDim; }
+    else if(h>=w && h>maxDim){ w=Math.round(w*(maxDim/h)); h=maxDim; }
+    const canvas=document.createElement('canvas');
+    canvas.width=w; canvas.height=h;
+    const ctx=canvas.getContext('2d');
+    ctx.drawImage(img,0,0,w,h);
+    callback(canvas.toDataURL('image/jpeg',0.72));
+  };
+  img.onerror=()=>callback(dataUrl); // fallback: pakai foto asli kalau gagal dikompres
+  img.src=dataUrl;
 }
 function showPhotoPreview(src){
   document.getElementById('photoUploadZone').style.display='none';
@@ -945,12 +969,17 @@ function saveToMenu(){
     showToast('⚠️ Belum terhubung ke server. Cek koneksi internet & coba lagi.','error');
     return;
   }
+  const btns = [document.getElementById('saveMenuBtnTop'), document.getElementById('saveMenuBtnPanel')];
+  btns.forEach(b=>{ if(b){ b.disabled=true; b.dataset.orig=b.innerHTML; b.innerHTML='⏳ Menyimpan...'; } });
+
   const menuData = menuItems.map(i=>({id:i.id,cat:i.cat,emoji:i.emoji,name:i.name,desc:i.desc,price:i.price,priceOri:i.priceOri||0,popular:i.popular,spicy:i.spicy,isNew:i.isNew,available:i.available,photo:i.photo||''}));
   db.ref('menu').set(menuData).then(()=>{
     showToast('✅ Menu tersimpan & langsung tampil di menu.html','success');
   }).catch(err=>{
     console.log('Save menu error:', err);
     showToast('⚠️ Gagal menyimpan menu ke server','error');
+  }).finally(()=>{
+    btns.forEach(b=>{ if(b){ b.disabled=false; b.innerHTML=b.dataset.orig; } });
   });
 }
 
